@@ -1,0 +1,41 @@
+{{- define "common-libs.cronjob" -}}
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ required "cron job name is required" .Values.jobName }}
+  labels:
+  {{- with .Values.extraLabels }}
+     {{ toYaml . | nindent 4 }}
+  {{- end }}
+  {{- include "helm.labels" . | nindent 4 }}   
+spec:
+  schedule: {{ required "cron job expression is required" .Values.schedule | quote }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.backoffLimit | default "2" }}
+      template:
+        spec:
+          {{- if .Values.serviceAccountName }}
+          serviceAccountName: {{ .Values.serviceAccountName }}
+          {{- end }}         
+          containers:
+          - name: {{ required "cron job name is required" .Values.jobName }}
+            image: {{ required "repo url is required" .Values.repoUrl }}:{{ required "image tag is required" .Values.imageTag }}
+            imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+            {{- if .Values.envVars }}
+            env:           
+            {{- range .Values.envVars }}
+              {{- with . }}           
+            - name: {{ .name | quote }}
+              value: {{ .value | quote }}
+              {{- end }}
+            {{- end }}
+            {{- end }}            
+      {{- with .Values.mounts }}
+        {{- toYaml . | nindent 10 }}
+      {{- end }}
+      {{- with .Values.volume }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}            
+          restartPolicy: {{ .Values.restartPolicy | default "OnFailure" }}
+{{- end }}

@@ -1,0 +1,107 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  labels:
+    {{- with .Values.extraLabels }}
+     {{ toYaml . | nindent 4}}
+    {{- end }}  
+    {{- include "helm.labels" . | nindent 4 }}  
+data:
+  # Triggers define the condition when the notification should be sent and list of templates required to generate the message
+  # Recipients can subscribe to the trigger and specify the required message template and destination notification service.
+  trigger.on-sync-status-unknown: |
+    - when: app.status.sync.status == 'Unknown'
+      send: [slack-template-bad]
+
+  trigger.on-sync-status-bad: |
+    - when: app.status.sync.status in ['Error', 'Failed', 'OutOfSync']
+      send: [slack-template-bad]
+  # Optional 'oncePer' property ensure that notification is sent only once per specified field value
+  # E.g. following is triggered once per sync revision
+  trigger.on-deployed: |
+    - when: app.status.operationState.phase in ['Succeeded']
+      send: [slack-template-good]
+  # Templates are used to generate the notification template message
+
+  template.my-custom-template: |
+    message: |
+      Application details: {{"{{"}}.context.argocdUrl{{"}}"}}/applications/{{"{{"}}.app.metadata.name{{"}}"}}.
+  # Templates might have notification service specific fields. E.g. slack message might include annotations
+  template.slack-template-good: |
+    message: |
+    slack:
+      attachments: |
+        [{
+          "color": "#36a64f",
+          "title": "{{"{{"}}.app.metadata.name{{"}}"}}",
+          "title_link": "{{"{{"}}.context.argocdUrl{{"}}"}}/applications/{{"{{"}}.app.metadata.name{{"}}"}}",
+          "fields": [
+                {
+                    "title": "Status",
+                    "value": "{{"{{"}}.app.status.sync.status{{"}}"}}",
+                    "short": true
+                },
+                {
+                    "title": "Env",
+                    "value": "{{"{{"}}.context.appenv{{"}}"}}",
+                    "short": true
+                }               
+            ],
+          "footer": "ArgoCD",
+          "footer_icon": "https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.png"
+        }]
+  template.slack-template-bad: |
+    message: |
+    slack:
+      attachments: |
+        [{
+          "color": "#FF0000",
+          "title": "{{"{{"}}.app.metadata.name{{"}}"}}",
+          "title_link": "{{"{{"}}.context.argocdUrl{{"}}"}}/applications/{{"{{"}}.app.metadata.name{{"}}"}}",
+          "fields": [
+                {
+                    "title": "Sync Status",
+                    "value": "{{"{{"}}.app.status.sync.status{{"}}"}}",
+                    "short": true
+                },
+                {
+                    "title": "Env",
+                    "value": "{{"{{"}}.context.appenv{{"}}"}}",
+                    "short": true
+                }               
+            ],
+          "footer": "ArgoCD",
+          "footer_icon": "https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.png"
+        }]  
+  # Holds list of triggers that are used by default if trigger is not specified explicitly in the subscription
+  defaultTriggers: |
+    - on-sync-status-unknown
+  # Notification services are used to deliver message.
+  # Service definition might reference values from argocd-notifications-secret Secret using $my-key format
+  # Service format key is: service.<type>.<optional-custom-name>
+  #  Slack
+  service.slack: |
+    token: $slack-token
+    username: {{ required "slack app username is required!" .Values.slack.appUserName }}
+    icon: {{ .Values.slack.appIconUrl | default "https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.png" }}
+  #  Slack based notifier with name mattermost
+  service.slack.mattermost: |
+    apiURL: https://my-mattermost-url.com/api
+    token: $slack-token
+    username: {{ required "slack app username is required!" .Values.slack.appUserName }}
+    icon: {{ .Values.slack.appIconUrl | default "https://cncf-branding.netlify.app/img/projects/argo/icon/color/argo-icon-color.png" }}
+
+  context: |
+    argocdUrl: {{ required "Argocd URL is required in slack message body" .Values.slack.messageBody.argocdUrl }}
+    appenv: {{ required "App env name is required in slack message body" .Values.slack.messageBody.appEnv }}
+  # Contains centrally managed global application subscriptions
+  subscriptions: |
+    # subscription for on-sync-status-unknown trigger notifications
+    - recipients:
+      - slack:{{ required "slack channel name is required for notifications!" .Values.slack.channelName }}
+      triggers:
+      - on-sync-status-unknown
+      - on-deployed
+      - on-sync-status-bad

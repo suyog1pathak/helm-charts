@@ -1,0 +1,17 @@
+# Default values for alpha.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+# Lib chart ::
+nameSpace: kube-system
+
+extraLabels: {}
+  # app.kubernetes.io/env: staging
+  # app.kubernetes.io/owner: devops
+
+# public hosted zone to monitor e.g alpha.com
+externDns:
+  domainName:
+
+# IAM service account name.    
+serviceAccount:     
+

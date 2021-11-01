@@ -1,0 +1,43 @@
+{{- define "common-libs.analysistemplate" -}}
+{{- if eq .Values.strategy.type "blueGreen" }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "common-libs.name" . }}-analysistemplate
+spec:
+  metrics:
+  - name: error-rate-{{ include "common-libs.name" . }}
+    interval: 60s
+    failureCondition: result >= 1
+    failureLimit: 1
+    initialDelay: 3m
+    count: 3
+    provider:
+      datadog:
+        interval: 5m
+        query: |
+          sum:trace.express.request.errors{env:{{.Values.datadogEnvTag}},service:{{ include "common-libs.name" . }},version:{{ .Values.imageTag }}}.rollup(sum,300) /
+          sum:trace.express.request{env:{{.Values.datadogEnvTag}},service:{{ include "common-libs.name" . }},version:{{ .Values.imageTag }}}.rollup(sum,300)
+{{- end }}  
+
+{{- if eq .Values.strategy.type "canary" }}
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "common-libs.name" . }}-analysistemplate
+spec:
+  metrics:
+  - name: error-rate-{{ include "common-libs.name" . }}
+    interval: 60s
+    failureCondition: result >= 1
+    failureLimit: 1
+    count: 2
+    provider:
+      datadog:
+        interval: 5m
+        query: |
+          sum:trace.express.request.errors{env:{{.Values.datadogEnvTag}},service:{{ include "common-libs.name" . }},version:{{ .Values.imageTag }}}.rollup(sum,300) /
+          sum:trace.express.request{env:{{.Values.datadogEnvTag}},service:{{ include "common-libs.name" . }},version:{{ .Values.imageTag }}}.rollup(sum,300)
+{{- end }}  
+
+{{- end }}

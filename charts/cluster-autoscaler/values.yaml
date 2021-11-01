@@ -1,0 +1,22 @@
+extraLabels:
+  app.kubernetes.io/owner: devops
+
+replicas: 1  
+
+serviceAccountName:
+
+imageTag: v1.21.0
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 300Mi
+  requests:
+    cpu: 100m
+    memory: 300Mi
+
+eksClusterName:
+  
+  
+extraArgs: []
+#  - ""  

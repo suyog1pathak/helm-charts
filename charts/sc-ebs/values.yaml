@@ -1,0 +1,20 @@
+
+storage:
+  zones:
+   - "us-east-1a"
+
+options:
+  allowVolumeExpansion: true
+  volumeBindingMode: WaitForFirstConsumer
+
+parameters:
+  # File system type that will be formatted during volume creation. This parameter is case sensitive!xfs, ext2, ext3, ext4
+  fsType:
+  ## EBS volume type  io1 io2 gp2 gp3 sc1 st1 standard
+  type:
+  iopsPerGB: 
+  allowAutoIOPSPerGBIncrease: 
+  iops:     
+  throughput:
+  encrypted:
+  kmsKeyId:  

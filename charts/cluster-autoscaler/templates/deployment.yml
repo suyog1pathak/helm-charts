@@ -1,0 +1,58 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+  {{- with .Values.extraLabels }}
+     {{ toYaml . | nindent 4}}
+  {{- end }}
+  {{- include "helm.labels" . | nindent 4 }}  
+    app: cluster-autoscaler
+spec:
+  replicas: {{ .Values.replicas | default "1" }}
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8085'
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+    spec:
+      serviceAccountName: {{ required "IAM Service account is needed" .Values.serviceAccountName }}
+      containers:
+        - image: k8s.gcr.io/autoscaling/cluster-autoscaler:{{ .Values.imageTag }}
+          name: cluster-autoscaler
+          {{- if .Values.resources }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- end }}  
+          command:
+            - ./cluster-autoscaler
+            - --v=4
+            - --stderrthreshold=info
+            - --cloud-provider=aws
+            - --skip-nodes-with-local-storage=false
+            - --expander=least-waste
+            - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/{{ required "Eks Clustername is required" .Values.eksClusterName }}
+            - --balance-similar-node-groups
+            - --skip-nodes-with-system-pods=false
+          {{- if .Values.extraArgs }}  
+          {{- range .Values.extraArgs }}
+            - {{ . }}
+          {{- end }}
+          {{- end }}
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: /etc/ssl/certs/ca-certificates.crt #/etc/ssl/certs/ca-bundle.crt for Amazon Linux Worker Nodes
+              readOnly: true
+          imagePullPolicy: "Always"
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            path: "/etc/ssl/certs/ca-bundle.crt"

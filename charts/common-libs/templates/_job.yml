@@ -1,0 +1,45 @@
+{{- define "common-libs.job" -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ required "JobName is required" .Values.jobName }}
+spec:
+  {{- if .Values.backoffLimit }}
+  backoffLimit: {{ .Values.backoffLimit }}
+  {{- end }}
+  {{- if .Values.activeDeadlineSeconds }}
+  activeDeadlineSeconds: {{ .Values.activeDeadlineSeconds }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+  {{- with .Values.extraLabels }}
+     {{ toYaml . | nindent 8}}
+  {{- end }}
+  {{- include "helm.labels" . | nindent 8 }} 
+    spec:
+      {{- if .Values.serviceAccountName }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      {{- end }}    
+      restartPolicy: {{ .Values.restartPolicy | default "OnFailure" }}
+      containers:
+        - name: {{ required "JobName is required" .Values.jobName }}
+          image: {{ required "repo url is required" .Values.repoUrl }}:{{ required "image tag is required" .Values.imageTag }}
+          imagePullPolicy: {{ .Values.imagePullPolicy | default "IfNotPresent" }}
+          {{- if .Values.envVars }}
+          env:           
+          {{- range .Values.envVars }}
+            {{- with . }}           
+          - name: {{ .name }}
+            value: {{ .value }}
+            {{- end }}
+          {{- end }}
+          {{- end }}
+         
+      {{- with .Values.mounts }}
+        {{- toYaml . | nindent 10 }}
+      {{- end }}
+      {{- with .Values.volume }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+{{- end }}      

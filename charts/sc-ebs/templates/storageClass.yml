@@ -1,0 +1,35 @@
+{{- range .Values.storage.zones }}
+{{- $type := $.Values.parameters.type | default "gp3" -}}
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: ebs-{{ (split "-" .)._2 }}
+provisioner: ebs.csi.aws.com
+volumeBindingMode: {{ $.Values.options.volumeBindingMode | default "WaitForFirstConsumer" }}
+parameters:
+  type: {{ $type }}
+  encrypted: {{ $.Values.parameters.encrypted | default "true" | quote }}
+  {{- if eq $type "gp3" }}
+  throughput: {{ $.Values.parameters.throughput | default "125" | quote }}
+    {{- if $.Values.parameters.iops }}
+  iops: {{ $.Values.parameters.iops }}
+    {{- end }}
+  {{- end }}  
+  csi.storage.k8s.io/fstype: {{ $.Values.parameters.fsType | default "xfs" }}
+  {{- if or (eq $type "io1") (eq $type "io2") }}
+    {{- if $.Values.parameters.iopsPerGB }}
+  iopsPerGB: {{ $.Values.parameters.iopsPerGB }}
+    {{- end }}
+    {{- if $.Values.parameters.allowAutoIOPSPerGBIncrease }}
+  allowAutoIOPSPerGBIncrease: {{ $.Values.parameters.allowAutoIOPSPerGBIncrease | quote }}
+    {{- end }}
+  {{- end }}
+
+allowedTopologies:
+- matchLabelExpressions:
+  - key: topology.ebs.csi.aws.com/zone
+    values:
+    - {{ . }}
+---   
+{{- end }}
